@@ -14,7 +14,9 @@
 namespace Common
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
+    using System.Linq.Expressions;
 
     /// <summary>
     /// A repository for views.
@@ -22,6 +24,6 @@ namespace Common
     public interface IViewRepository
     {
         T Find<T>(Guid id) where T : class;
-        IQueryable<T> Query<T>() where T : class;
+        IEnumerable<T> Query<T>(Expression<Func<T, bool>> predicate) where T : class;
     }
 }

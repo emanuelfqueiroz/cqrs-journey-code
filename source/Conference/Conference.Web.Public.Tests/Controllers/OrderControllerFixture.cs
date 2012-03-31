@@ -15,6 +15,7 @@ namespace Conference.Web.Public.Tests.Controllers.OrderControllerFixture
 {
     using System;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Web.Mvc;
     using Common;
     using Conference.Web.Public.Controllers;
@@ -90,16 +91,15 @@ namespace Conference.Web.Public.Tests.Controllers.OrderControllerFixture
             // Arrange
             var orderId = Guid.NewGuid();
             Mock.Get<IViewRepository>(this.viewRepository)
-                .Setup(r => r.Query<OrderDTO>())
-                .Returns(new OrderDTO[] 
+                .Setup(r => r.Query<OrderDTO>(It.IsAny<Expression<Func<OrderDTO, bool>>>()))
+                .Returns((Expression<Func<OrderDTO, bool>> x) => new OrderDTO[] 
                 { 
                     new OrderDTO(orderId, Order.States.Created) 
                     {
                         RegistrantEmail = "info@contoso.com",
                         AccessCode = "asdf", 
                     }
-                }.AsQueryable());
-
+                }.AsQueryable().Where(x));
 
             // Act
             var result = (RedirectToRouteResult)this.sut.Find("conference", "info@contoso.com", "asdf");
@@ -110,6 +110,11 @@ namespace Conference.Web.Public.Tests.Controllers.OrderControllerFixture
             Assert.Equal("Display", result.RouteValues["action"]);
             Assert.Equal("conference", result.RouteValues["conferenceCode"]);
             Assert.Equal(orderId, result.RouteValues["orderId"]);
+        }
+
+        private object Expression<T1>()
+        {
+            throw new NotImplementedException();
         }
 
         [Fact]

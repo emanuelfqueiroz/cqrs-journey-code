@@ -60,8 +60,7 @@ namespace Conference.Web.Public.Controllers
             var repo = this.repositoryFactory();
             using (repo as IDisposable)
             {
-                var order = repo.Query<OrderDTO>()
-                    .Where(o => o.RegistrantEmail == email && o.AccessCode == accessCode)
+                var order = repo.Query<OrderDTO>(o => o.RegistrantEmail == email && o.AccessCode == accessCode)
                     .FirstOrDefault();
 
                 if (order == null)

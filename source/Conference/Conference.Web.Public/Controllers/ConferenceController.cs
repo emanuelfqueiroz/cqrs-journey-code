@@ -22,16 +22,16 @@ namespace Conference.Web.Public.Controllers
 
     public class ConferenceController : Controller
     {
-        private Func<IViewRepository> repositoryFactory;
+        private readonly IViewRepository repository;
 
         public ConferenceController()
-            : this(MvcApplication.GetService<Func<IViewRepository>>())
+            : this(MvcApplication.GetService<IViewRepository>())
         {
         }
 
-        public ConferenceController(Func<IViewRepository> repositoryFactory)
+        public ConferenceController(IViewRepository repository)
         {
-            this.repositoryFactory = repositoryFactory;
+            this.repository = repository;
         }
 
         public ActionResult Display(string conferenceCode)
@@ -46,19 +46,14 @@ namespace Conference.Web.Public.Controllers
 
         private Conference.Web.Public.Models.Conference GetConference(string conferenceCode)
         {
-            var repo = this.repositoryFactory();
-            using (repo as IDisposable)
-            {
-                return repo.Query<ConferenceDTO>()
-                    .Where(dto => dto.Code == conferenceCode)
-                    .Select(dto => new Conference.Web.Public.Models.Conference
-                    {
-                        Code = dto.Code,
-                        Name = dto.Name,
-                        Description = dto.Description
-                    })
-                    .FirstOrDefault();
-            }
+            var conferenceDTO = this.repository.Query<ConferenceDTO>(c => c.Code == conferenceCode).First();
+            return new Conference.Web.Public.Models.Conference 
+                { 
+                    Code = conferenceDTO.Code, 
+                    Name = conferenceDTO.Name, 
+                    Description = conferenceDTO.Description
+                };
+
         }
     }
 }

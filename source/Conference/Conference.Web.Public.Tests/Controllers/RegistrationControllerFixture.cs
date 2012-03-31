@@ -14,7 +14,9 @@
 namespace Conference.Web.Public.Tests.Controllers.RegistrationControllerFixture
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Web.Mvc;
     using Common;
     using Conference.Web.Public.Controllers;
@@ -36,7 +38,7 @@ namespace Conference.Web.Public.Tests.Controllers.RegistrationControllerFixture
             this.bus = Mock.Of<ICommandBus>();
             this.viewRepository = Mock.Of<IViewRepository>();
 
-            this.sut = new RegistrationController(this.bus, () => this.viewRepository);
+            this.sut = new RegistrationController(this.bus, this.viewRepository);
         }
 
         [Fact]
@@ -49,8 +51,8 @@ namespace Conference.Web.Public.Tests.Controllers.RegistrationControllerFixture
 
             // Arrange
             Mock.Get<IViewRepository>(this.viewRepository)
-                .Setup(r => r.Query<ConferenceDTO>())
-                .Returns(new ConferenceDTO[] { conferenceDTO }.AsQueryable());
+                .Setup(r => r.Query<ConferenceDTO>(It.IsAny<Expression<Func<ConferenceDTO, bool>>>()))
+                .Returns<Expression<Func<ConferenceDTO, bool>>>(new ConferenceDTO[] { conferenceDTO }.AsQueryable().Where);
 
             // Act
             var result = (ViewResult)this.sut.StartRegistration("conference");
@@ -77,8 +79,8 @@ namespace Conference.Web.Public.Tests.Controllers.RegistrationControllerFixture
 
             // Arrange
             Mock.Get<IViewRepository>(this.viewRepository)
-                .Setup(r => r.Query<ConferenceDTO>())
-                .Returns(new ConferenceDTO[] { conferenceDTO }.AsQueryable());
+                .Setup(r => r.Query<ConferenceDTO>(It.IsAny<Expression<Func<ConferenceDTO, bool>>>()))
+                .Returns((Expression<Func<ConferenceDTO, bool>> x) => new ConferenceDTO[] { conferenceDTO }.AsQueryable().Where(x));
 
             var orderId = Guid.NewGuid();
 

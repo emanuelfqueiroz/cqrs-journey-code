@@ -14,8 +14,10 @@
 namespace Registration.ReadModel
 {
     using System;
+    using System.Collections.Generic;
     using System.Data.Entity;
     using System.Linq;
+    using System.Linq.Expressions;
     using Common;
 
     /// <summary>
@@ -51,12 +53,33 @@ namespace Registration.ReadModel
 
         public T Find<T>(Guid id) where T : class
         {
+            // how to eager load here generically?
             return this.Set<T>().Find(id);
         }
 
-        public IQueryable<T> Query<T>() where T : class
+        public IEnumerable<T> Query<T>(Expression<Func<T, bool>> predicate) where T : class
         {
-            return this.Set<T>();
+            var query = this.Set<T>().Where(predicate);
+
+            query = EagerLoadProperties<T>(query);
+
+            return query.ToList();
+        }
+
+        private static IQueryable<T> EagerLoadProperties<T>(IQueryable<T> query) where T : class
+        {
+            // yuck! See why generalizing the repository is painful?
+            // Can these be added declaratively to the model instead of in each query?
+            if (typeof(T) == typeof(ConferenceDTO))
+            {
+                query = query.Include("Seats");
+            }
+            else if (typeof(T) == typeof(OrderDTO))
+            {
+                query = query.Include("Lines");
+            }
+
+            return query;
         }
     }
 }

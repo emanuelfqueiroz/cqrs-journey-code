@@ -11,39 +11,26 @@
 // See the License for the specific language governing permissions and limitations under the License.
 // ==============================================================================================================
 
-namespace Registration.ReadModel
+namespace Conference.Web.Public
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.ObjectModel;
-    using System.ComponentModel.DataAnnotations;
-    using System.Linq;
+    using System.Linq.Expressions;
+    using Common;
+    using Registration.ReadModel;
 
-    public class ConferenceDTO
+    public class OrmViewRepositoryProxy : IViewRepository
     {
-        public ConferenceDTO(Guid id, string code, string name, string description, IEnumerable<ConferenceSeatTypeDTO> seats)
+        public T Find<T>(Guid id) where T : class
         {
-            this.Id = id;
-            this.Code = code;
-            this.Name = name;
-            this.Description = description;
-            this.Seats = seats.ToList();
+            using (var repo = new OrmViewRepository())
+                return repo.Find<T>(id);
         }
 
-        protected ConferenceDTO()
+        public IEnumerable<T> Query<T>(Expression<Func<T, bool>> predicate) where T : class
         {
-            this.Seats = new List<ConferenceSeatTypeDTO>();
+            using (var repo = new OrmViewRepository())
+                return repo.Query<T>(predicate);
         }
-
-        [Key]
-        public virtual Guid Id { get; private set; }
-
-        public virtual string Code { get; private set; }
-
-        public virtual string Name { get; private set; }
-
-        public virtual string Description { get; private set; }
-
-        public ICollection<ConferenceSeatTypeDTO> Seats { get; private set; }
     }
 }
