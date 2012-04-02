@@ -36,6 +36,7 @@ namespace Registration.ReadModel
         public OrmViewRepository(string nameOrConnectionString)
             : base(nameOrConnectionString)
         {
+            this.Configuration.LazyLoadingEnabled = false;
         }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
