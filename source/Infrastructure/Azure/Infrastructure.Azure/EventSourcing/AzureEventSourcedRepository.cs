@@ -36,6 +36,7 @@ namespace Infrastructure.Azure.EventSourcing
         private readonly ObjectCache cache;
         private readonly Action<T> cacheMementoIfApplicable;
         private readonly Func<Guid, IMemento> getMementoFromCache;
+        private readonly Action<Guid> expireCache;
 
         public AzureEventSourcedRepository(IEventStore eventStore, IEventStoreBusPublisher publisher, ITextSerializer serializer, IMetadataProvider metadataProvider, ObjectCache cache)
         {
@@ -74,12 +75,14 @@ namespace Infrastructure.Azure.EventSourcing
                             new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(30) });
                     };
                 this.getMementoFromCache = id => (IMemento)this.cache.Get(GetPartitionKey(id));
+                this.expireCache = id => this.cache.Remove(GetPartitionKey(id));
             }
             else
             {
                 // if no cache object or is not a memento originator, then no-op
                 this.cacheMementoIfApplicable = o => { };
                 this.getMementoFromCache = id => { return null; };
+                this.expireCache = id => { };
             }
         }
 
@@ -90,8 +93,9 @@ namespace Infrastructure.Azure.EventSourcing
             {
                 // NOTE: if we had a guarantee that this is running in a single process, there is
                 // no need to check if there are new events after the cached version.
-                var deserialized = this.eventStore.Load(GetPartitionKey(id), memento.Version + 1)
-                    .Select(this.Deserialize);
+                var deserialized = Enumerable.Empty<IVersionedEvent>();
+                //var deserialized = this.eventStore.Load(GetPartitionKey(id), memento.Version + 1)
+                //    .Select(this.Deserialize);
 
                 return this.originatorEntityFactory.Invoke(id, memento, deserialized);
             }
@@ -129,7 +133,15 @@ namespace Infrastructure.Azure.EventSourcing
             var serialized = events.Select(e => this.Serialize(e, correlationId));
 
             var partitionKey = this.GetPartitionKey(eventSourced.Id);
-            this.eventStore.Save(partitionKey, serialized);
+            try
+            {
+                this.eventStore.Save(partitionKey, serialized);
+            }
+            catch
+            {
+                this.expireCache(eventSourced.Id);
+                throw;
+            }
 
             this.publisher.SendAsync(partitionKey);
 
