@@ -14,6 +14,7 @@
 namespace Infrastructure.Azure.IntegrationTests.Storage.BlobStorageFixture
 {
     using System;
+    using System.Text;
     using Infrastructure.Azure.BlobStorage;
     using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.StorageClient;
@@ -143,6 +144,39 @@ namespace Infrastructure.Azure.IntegrationTests.Storage.BlobStorageFixture
             var retrievedBytes = this.sut.Find(this.id);
 
             Assert.Equal(this.bytes, retrievedBytes);
+        }
+
+        [Fact]
+        public void then_can_delete_blob()
+        {
+            this.sut.Delete(this.id);
+
+            var retrievedBytes = this.sut.Find(this.id);
+
+            Assert.Null(retrievedBytes);
+        }
+
+        [Fact]
+        public void then_can_delete_multiple_times()
+        {
+            this.sut.Delete(this.id);
+            this.sut.Delete(this.id);
+
+            var retrievedBytes = this.sut.Find(this.id);
+
+            Assert.Null(retrievedBytes);
+        }
+
+        [Fact]
+        public void then_can_overwrite_blob()
+        {
+            var newBytes = Encoding.UTF8.GetBytes(Guid.NewGuid().ToString() + Guid.NewGuid().ToString());
+
+            this.sut.Save(this.id, "text/plain", newBytes);
+
+            var retrievedBytes = this.sut.Find(this.id);
+
+            Assert.Equal(newBytes, retrievedBytes);
         }
     }
 

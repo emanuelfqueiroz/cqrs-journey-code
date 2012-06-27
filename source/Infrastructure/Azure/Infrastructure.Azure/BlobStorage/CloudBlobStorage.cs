@@ -16,11 +16,13 @@ namespace Infrastructure.Azure.BlobStorage
     using System;
     using System.Diagnostics;
     using System.IO;
+    using System.Net;
     using Infrastructure.BlobStorage;
     using Microsoft.Practices.EnterpriseLibrary.WindowsAzure.TransientFaultHandling.AzureStorage;
     using Microsoft.Practices.TransientFaultHandling;
     using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.StorageClient;
+    using Microsoft.WindowsAzure.StorageClient.Protocol;
 
     public class CloudBlobStorage : IBlobStorage
     {
@@ -54,25 +56,54 @@ namespace Infrastructure.Azure.BlobStorage
 
             return this.readRetryPolicy.ExecuteAction(() =>
                 {
+                    var request = BlobRequest.Get(blobReference.Uri, 30, null, null);
+                    this.account.Credentials.SignRequest(request);
                     try
                     {
-                        using (var stream = blobReference.OpenRead())
+                        var response = request.GetResponse();
+
+                        using (var stream = response.GetResponseStream())
                         using (var resultStream = new MemoryStream())
                         {
                             stream.CopyTo(resultStream);
                             return resultStream.ToArray();
                         }
                     }
-                    catch (StorageClientException e)
+                    catch (WebException e)
                     {
-                        if (e.ErrorCode == StorageErrorCode.ResourceNotFound)
+                        if (e.Status == WebExceptionStatus.ProtocolError)
                         {
-                            return null;
+                            var httpResponse = e.Response as HttpWebResponse;
+                            if (httpResponse != null && httpResponse.StatusCode == HttpStatusCode.NotFound)
+                            {
+                                return null;
+                            }
                         }
 
                         throw;
                     }
                 });
+            //return this.readRetryPolicy.ExecuteAction(() =>
+            //    {
+            //        try
+            //        {
+            //            using (var stream = blobReference.OpenRead())
+            //            using (var resultStream = new MemoryStream())
+            //            {
+            //                stream.CopyTo(resultStream);
+            //                return resultStream.ToArray();
+            //            }
+            //        }
+            //        catch (StorageClientException e)
+            //        {
+            //            if (e.ErrorCode == StorageErrorCode.ResourceNotFound)
+            //            {
+            //                return null;
+            //            }
+
+            //            throw;
+            //        }
+            //    });
         }
 
         public void Save(string id, string contentType, byte[] blob)
@@ -84,13 +115,28 @@ namespace Infrastructure.Azure.BlobStorage
 
             this.writeRetryPolicy.ExecuteAction(() =>
                 {
-                    using (var stream = blobReference.OpenWrite())
+                    var request = BlobRequest.Put(blobReference.Uri, 30, new BlobProperties { ContentType = contentType }, BlobType.BlockBlob, null, 0);
+                    using (var requestStream = request.GetRequestStream())
                     {
-                        stream.Write(blob, 0, blob.Length);
+                        requestStream.Write(blob, 0, blob.Length);
                     }
-
-                    blobReference.Properties.ContentType = contentType;
+                    this.account.Credentials.SignRequest(request);
+                    using (var response = (HttpWebResponse)request.GetResponse())
+                    {
+                        Debug.Assert(response.StatusCode == HttpStatusCode.Created);
+                    }
                 });
+            
+
+            //this.writeRetryPolicy.ExecuteAction(() =>
+            //    {
+            //        using (var stream = blobReference.OpenWrite())
+            //        {
+            //            stream.Write(blob, 0, blob.Length);
+            //        }
+
+            //        blobReference.Properties.ContentType = contentType;
+            //    });
         }
 
         public void Delete(string id)
@@ -101,18 +147,43 @@ namespace Infrastructure.Azure.BlobStorage
 
             this.writeRetryPolicy.ExecuteAction(() =>
                 {
+                    var request = BlobRequest.Delete(blobReference.Uri, 30, null, DeleteSnapshotsOption.IncludeSnapshots, null);
+                    this.account.Credentials.SignRequest(request);
                     try
                     {
-                        blobReference.DeleteIfExists();
-                    }
-                    catch (StorageClientException e)
-                    {
-                        if (e.ErrorCode != StorageErrorCode.ResourceNotFound)
+                        using (var response = (HttpWebResponse)request.GetResponse())
                         {
-                            throw;
+                            Debug.Assert(response.StatusCode == HttpStatusCode.Accepted);
                         }
                     }
+                    catch (WebException e)
+                    {
+                        if (e.Status == WebExceptionStatus.ProtocolError)
+                        {
+                            var httpResponse = e.Response as HttpWebResponse;
+                            if (httpResponse != null && httpResponse.StatusCode == HttpStatusCode.NotFound)
+                            {
+                                return;
+                            }
+                        }
+
+                        throw;
+                    }
                 });
+            //this.writeRetryPolicy.ExecuteAction(() =>
+            //    {
+            //        try
+            //        {
+            //            blobReference.DeleteIfExists();
+            //        }
+            //        catch (StorageClientException e)
+            //        {
+            //            if (e.ErrorCode != StorageErrorCode.ResourceNotFound)
+            //            {
+            //                throw;
+            //            }
+            //        }
+            //    });
         }
     }
 }
